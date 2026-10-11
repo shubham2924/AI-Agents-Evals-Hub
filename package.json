@@ -1,0 +1,23 @@
+{
+  "name": "agent-evals-platform",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "concurrently -k -n api,web -c blue,green \"npm run dev -w @agent-evals/api\" \"npm run dev -w @agent-evals/web\"",
+    "build": "npm run build -w @agent-evals/shared && npm run build -w @agent-evals/api && npm run build -w @agent-evals/web",
+    "start": "npm run start -w @agent-evals/api",
+    "test": "npm run test -w @agent-evals/api && npm run test -w @agent-evals/web",
+    "typecheck": "npm run typecheck -w @agent-evals/api && npm run typecheck -w @agent-evals/web",
+    "seed": "npm run seed -w @agent-evals/api"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  },
+  "engines": {
+    "node": ">=22.5"
+  }
+}

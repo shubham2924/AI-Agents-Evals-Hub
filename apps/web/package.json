@@ -1,0 +1,23 @@
+{
+  "name": "@agent-evals/web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc -b && vite build",
+    "test": "vitest run --passWithNoTests",
+    "typecheck": "vue-tsc -b"
+  },
+  "dependencies": {
+    "@agent-evals/shared": "*",
+    "vue": "^3.5.13"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.2.1",
+    "typescript": "^5.7.3",
+    "vite": "^6.1.0",
+    "vitest": "^5.0.3",
+    "vue-tsc": "^2.2.2"
+  }
+}
