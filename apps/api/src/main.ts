@@ -2,12 +2,16 @@ import 'reflect-metadata';
 import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
+import { config as loadEnv } from 'dotenv';
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { AppModule } from './app.module';
 import { DatabaseService } from './database';
 import { seed } from './seed';
 import { projectRoot } from './paths';
+
+// Always load the repository's .env, even when npm is started from another directory.
+loadEnv({ path: resolve(projectRoot, '.env'), quiet: true });
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);

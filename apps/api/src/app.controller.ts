@@ -1,11 +1,14 @@
-import { Body, Controller, Get, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, Inject, Param, Post } from '@nestjs/common';
 import { CreateConfigDto, CreateExperimentDto, CreateTaskSetDto } from './dto';
 import { RunnerService } from './runner.service';
 import { StoreService } from './store.service';
 
 @Controller('api')
 export class AppController {
-  constructor(private readonly store: StoreService, private readonly runner: RunnerService) {}
+  constructor(
+    @Inject(StoreService) private readonly store: StoreService,
+    @Inject(RunnerService) private readonly runner: RunnerService,
+  ) {}
   @Get('health') health() { return { status: 'ok', time: new Date().toISOString() }; }
   @Get('task-sets') taskSets() { return this.store.listTaskSets(); }
   @Post('task-sets') createTaskSet(@Body() input: CreateTaskSetDto) { return this.store.createTaskSet(input); }

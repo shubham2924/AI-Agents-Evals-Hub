@@ -1,11 +1,11 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import type { AgentConfig, ExperimentSummary, Run, Task, TaskSet, TraceEvent } from '@agent-evals/shared';
 import { DatabaseService } from './database';
 import { compareRuns } from './comparison';
 
 @Injectable()
 export class StoreService {
-  constructor(private readonly database: DatabaseService) {}
+  constructor(@Inject(DatabaseService) private readonly database: DatabaseService) {}
 
   listTaskSets(): TaskSet[] {
     const sets = this.database.db.prepare('SELECT * FROM task_sets ORDER BY created_at DESC').all() as any[];

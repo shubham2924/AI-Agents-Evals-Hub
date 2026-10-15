@@ -11,8 +11,13 @@ export function seed(dbService: DatabaseService) {
   for (const task of sampleTasks) addTask.run(task.id, ids.taskSet, task.name, task.prompt, task.scorerType, task.expected, task.weight);
 
   const addConfig = db.prepare('INSERT OR IGNORE INTO agent_configs VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
-  addConfig.run(ids.baseline, 'General assistant', 'Hermes with a general instruction and no domain skill.', 'openrouter', 'openai/gpt-4.1-mini', '[]', '["safe"]', 0, 'Answer accurately and concisely.', now);
-  addConfig.run(ids.candidate, 'Support specialist', 'Same model with support triage guidance and memory enabled.', 'openrouter', 'openai/gpt-4.1-mini', '["support-triage"]', '["safe"]', 1, 'Follow support policy exactly. Never invent compensation. Escalate account security incidents.', now);
+  addConfig.run(ids.baseline, 'General assistant', 'Hermes with a general instruction and no domain skill.', 'openai-api', 'gpt-5.4-mini', '[]', '["safe"]', 0, 'Answer accurately and concisely.', now);
+  addConfig.run(ids.candidate, 'Support specialist', 'Same model with support triage guidance and memory enabled.', 'openai-api', 'gpt-5.4-mini', '["support-triage"]', '["safe"]', 1, 'Follow support policy exactly. Never invent compensation. Escalate account security incidents.', now);
+
+  // Keep databases created by earlier versions aligned with the documented direct OpenAI setup.
+  db.prepare('UPDATE agent_configs SET provider = ?, model = ? WHERE id IN (?, ?)').run(
+    'openai-api', 'gpt-5.4-mini', ids.baseline, ids.candidate,
+  );
 
   const existing = db.prepare('SELECT id FROM experiments WHERE id = ?').get(ids.experiment);
   if (!existing) {

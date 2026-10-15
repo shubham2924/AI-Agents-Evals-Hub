@@ -20,7 +20,7 @@ Experiment runner
 
 The Nest process owns orchestration. Starting an experiment materializes all `(task × config × repetition)` rows as `queued`, then a small worker pool processes them. This is intentionally in-process for a local take-home: the state is durable, while the executor is simple enough to understand in one sitting.
 
-Hermes is invoked through its documented `chat --oneshot --format stream-json` interface. This keeps the TypeScript product decoupled from Hermes' Python internals while retaining structured system, tool, result and token events. Each observation gets a separate `HERMES_HOME`; therefore memory, sessions, and installed skills cannot leak across candidates or repetitions.
+Hermes is invoked through its documented `chat --oneshot --format stream-json` interface. This keeps the TypeScript product decoupled from Hermes' Python internals while retaining structured system, tool, result and token events. Each observation gets a separate `HERMES_HOME` directly under Hermes' official `~/.hermes/profiles` directory; therefore memory, sessions, and installed skills cannot leak across candidates or repetitions, while profiles still share the managed Hermes runtime. The temporary profile is removed after its structured trace is stored; `KEEP_HERMES_PROFILES=true` retains it for debugging.
 
 ## Data model
 

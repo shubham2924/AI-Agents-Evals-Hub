@@ -1,7 +1,8 @@
-import { ConflictException, Injectable, Logger } from '@nestjs/common';
+import { ConflictException, Inject, Injectable, Logger } from '@nestjs/common';
 import type { AgentConfig, Task, TraceEvent } from '@agent-evals/shared';
 import { spawn } from 'node:child_process';
-import { cpSync, existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { homedir } from 'node:os';
 import { resolve } from 'node:path';
 import { scoreOutput } from './scoring';
 import { StoreService } from './store.service';
@@ -17,7 +18,7 @@ export class RunnerService {
   private readonly logger = new Logger(RunnerService.name);
   private readonly active = new Set<string>();
 
-  constructor(private readonly store: StoreService) {}
+  constructor(@Inject(StoreService) private readonly store: StoreService) {}
 
   start(experimentId: string) {
     if (this.active.has(experimentId)) throw new ConflictException('Experiment is already running');
@@ -87,20 +88,37 @@ export class RunnerService {
 
   private async runHermes(experimentId: string, runId: string, task: Task, config: AgentConfig): Promise<RunnerResult> {
     const started = Date.now();
+    if (config.provider === 'openai-api' && !process.env.OPENAI_API_KEY?.trim()) {
+      const message = 'OPENAI_API_KEY is missing. Copy .env.example to .env, add your key, and restart npm run dev.';
+      return failedResult(message, started, task);
+    }
     // A profile per observation prevents memory/session leakage and permits safe concurrency.
-    const hermesHome = resolve(projectRoot, 'data/hermes-profiles', experimentId, config.id, runId);
+    // A direct child of Hermes' official profiles directory shares the installed
+    // Python runtime while keeping this observation's state completely separate.
+    const profilesRoot = process.env.HERMES_EVALS_PROFILE_ROOT?.trim()
+      || resolve(homedir(), '.hermes', 'profiles');
+    const hermesHome = resolve(profilesRoot, `agent-evals-${experimentId}-${runId}`);
     this.prepareHermesProfile(hermesHome, config);
     const args = ['chat', '--oneshot', '--query', task.prompt, '--format', 'stream-json', '--source', 'agent-evals', '--provider', config.provider, '--model', config.model, '--max-turns', '20'];
     if (config.tools.length) args.push('--toolsets', config.tools.join(','));
     if (config.skills.length) args.push('--skills', config.skills.join(','));
     const trace: TraceEvent[] = [{ at: new Date().toISOString(), type: 'prompt', title: task.name, content: task.prompt }];
     try {
-      const result = await spawnHermes(process.env.HERMES_BIN ?? 'hermes', args, hermesHome, trace);
+      const command = resolveHermesCommand();
+      const result = await spawnHermes(command, args, hermesHome, trace);
       return { ...result, latencyMs: result.latencyMs || Date.now() - started, estimatedCostUsd: estimateCost(config.model, result.inputTokens, result.outputTokens), trace };
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const missingCommand = error instanceof Error && (error as NodeJS.ErrnoException).code === 'ENOENT';
+      const message = missingCommand
+        ? `Hermes executable was not found. Set HERMES_BIN in .env to the absolute path printed by "which hermes", then restart the app.`
+        : error instanceof Error ? error.message : String(error);
       trace.push({ at: new Date().toISOString(), type: 'error', title: 'Hermes failed', content: message });
       return { output: '', latencyMs: Date.now() - started, inputTokens: 0, outputTokens: 0, estimatedCostUsd: 0, exitCode: 1, error: message, trace };
+    } finally {
+      if (process.env.KEEP_HERMES_PROFILES !== 'true') {
+        try { rmSync(hermesHome, { recursive: true, force: true }); }
+        catch (error) { this.logger.warn(`Could not remove temporary Hermes profile ${hermesHome}: ${String(error)}`); }
+      }
     }
   }
 
@@ -158,9 +176,27 @@ function demoPassingOutput(task: Task) {
   return task.expected;
 }
 function deterministicValue(input: string) { let hash = 2166136261; for (const character of input) { hash ^= character.charCodeAt(0); hash = Math.imul(hash, 16777619); } return (hash >>> 0) / 2 ** 32; }
+function resolveHermesCommand() {
+  const configured = process.env.HERMES_BIN?.trim() || 'hermes';
+  if (configured !== 'hermes') return configured;
+  const standardUserInstall = resolve(homedir(), '.local', 'bin', 'hermes');
+  return existsSync(standardUserInstall) ? standardUserInstall : configured;
+}
 function estimateCost(model: string, inputTokens: number, outputTokens: number) {
   // Illustrative October 2026 defaults. Unknown models remain zero rather than implying false precision.
-  const prices: Record<string, [number, number]> = { 'openai/gpt-4.1-mini': [0.4, 1.6] };
+  const prices: Record<string, [number, number]> = { 'gpt-5.4-mini': [0.75, 4.5] };
   const price = prices[model];
   return price ? (inputTokens * price[0] + outputTokens * price[1]) / 1_000_000 : 0;
+}
+
+function failedResult(message: string, started: number, task: Task): RunnerResult {
+  const now = new Date().toISOString();
+  return {
+    output: '', latencyMs: Date.now() - started, inputTokens: 0, outputTokens: 0,
+    estimatedCostUsd: 0, exitCode: 1, error: message,
+    trace: [
+      { at: now, type: 'prompt', title: task.name, content: task.prompt },
+      { at: now, type: 'error', title: 'Setup required', content: message },
+    ],
+  };
 }
