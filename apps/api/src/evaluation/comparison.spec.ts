@@ -12,6 +12,7 @@ describe('compareRuns', () => {
     expect(result.absoluteDelta).toBe(1);
     expect(result.sampleCount).toBe(12);
   });
+
   it('returns inconclusive for mixed paired differences', () => {
     const runs = Array.from({ length: 10 }, (_, repetition) => [
       { taskId: 'task', configId: 'a', repetition, score: repetition % 2 },

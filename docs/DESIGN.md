@@ -20,6 +20,22 @@ Experiment runner
 
 The Nest process owns orchestration. Starting an experiment materializes all `(task × config × repetition)` rows as `queued`, then a small worker pool processes them. This is intentionally in-process for a local take-home: the state is durable, while the executor is simple enough to understand in one sitting.
 
+The API is organised by domain rather than by technical file type:
+
+```text
+apps/api/src/
+├── task-sets/       controller → service → repository
+├── agent-configs/   controller → service → repository
+├── experiments/     controller → service → repository + orchestrator
+├── runners/         demo and Hermes execution adapters
+├── evaluation/      deterministic scoring and comparison statistics
+├── common/          configuration, database, migrations and validation
+├── seed/            repeatable sample-data setup
+└── health/          operational health endpoint
+```
+
+Controllers only translate HTTP requests and responses. Services enforce business rules. Repositories own SQL and row mapping. Runner adapters isolate external-process concerns, while evaluation functions remain pure and independently testable. This separation keeps database, transport and Hermes details out of the domain logic.
+
 Hermes is invoked through its documented `chat --oneshot --format stream-json` interface. This keeps the TypeScript product decoupled from Hermes' Python internals while retaining structured system, tool, result and token events. Each observation gets a separate `HERMES_HOME` directly under Hermes' official `~/.hermes/profiles` directory; therefore memory, sessions, and installed skills cannot leak across candidates or repetitions, while profiles still share the managed Hermes runtime. The temporary profile is removed after its structured trace is stored; `KEEP_HERMES_PROFILES=true` retains it for debugging.
 
 ## Data model
@@ -29,7 +45,17 @@ Hermes is invoked through its documented `chat --oneshot --format stream-json` i
 - `experiments`: the immutable comparison definition and lifecycle state.
 - `runs`: one observation with output, binary score, timing, tokens, cost estimate and JSON trace.
 
-SQLite uses WAL mode and foreign keys. Schema creation is idempotent at startup. JSON is used only for naturally nested data (tool trace and string lists); comparison-critical fields stay relational.
+SQLite uses WAL mode, foreign keys, a busy timeout and versioned migrations. Multi-row writes use explicit transactions. JSON is used only for naturally nested data (tool trace and string lists); comparison-critical fields stay relational.
+
+All request-derived database values use prepared statements and bound parameters (`?`). SQL fragments are static constants owned by repositories; user input is never interpolated into a query. Inserts name their columns explicitly, rows have concrete TypeScript interfaces, and persisted JSON is parsed through checked boundary helpers instead of unchecked casts.
+
+## Request and process safety
+
+DTO validation is a trust boundary, not a replacement for query parameterisation. The global validation pipe strips no data silently: it rejects unknown properties, transforms validated DTOs, trims strings and enforces length/range/array limits. Services additionally validate cross-record rules, JSON scorer values and regular expressions. Potentially exponential regular expressions are rejected.
+
+Route identifiers are validated before reaching a repository. Hermes skill names use a slug-only format and receive a second resolved-path containment check before a file is copied. The Hermes child process is spawned with `shell: false`, bounded output buffers and a hard timeout. API keys stay in the environment, known secret patterns are redacted from captured errors, and temporary Hermes profiles are deleted by default.
+
+HTTP responses use Helmet security headers. Request bodies are limited to 100 KB, and development CORS is restricted to the local Vite origins. The service deliberately binds to loopback because authentication is outside this local assignment's scope.
 
 ## Scoring
 
@@ -63,4 +89,12 @@ Runs are paired on `(task, repetition)`, then candidate-minus-baseline differenc
 
 ## Failure behavior
 
-Hermes has a five-minute process timeout. Non-zero exits become `error` runs and preserve diagnostics. An experiment containing any error ends as `failed`; successfully scored runs remain inspectable. A rerun clears that experiment's old run rows before enqueueing a fresh matrix.
+Hermes has a configurable process timeout (five minutes by default). Non-zero exits become `error` runs and preserve redacted, size-bounded diagnostics. An experiment containing any error ends as `failed`; successfully scored runs remain inspectable. A rerun clears that experiment's old run rows before enqueueing a fresh matrix.
+
+## Test strategy
+
+- Pure unit tests cover scorers and paired bootstrap comparison.
+- HTTP integration tests boot the real Nest application against a temporary SQLite database.
+- The integration suite checks the seeded endpoints, security headers, strict input validation, unsafe regex/path rejection, a complete experiment lifecycle, and an SQL-metacharacter payload that remains ordinary data.
+- Frontend tests cover the typed API client's success and error contracts.
+- Lint, format checking, strict TypeScript checking and production builds are exposed as repository-level commands.

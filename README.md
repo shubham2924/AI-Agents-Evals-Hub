@@ -99,6 +99,8 @@ Useful checks:
 ```bash
 npm test
 npm run typecheck
+npm run lint
+npm run format:check
 npm run build
 ```
 
@@ -123,12 +125,20 @@ npm start
 ## Repository map
 
 ```text
-apps/api/             NestJS API, runners, scoring, statistics, SQLite
-apps/web/             Vue 3 + TypeScript interface
+apps/api/src/
+  task-sets/           Task-set HTTP, business and persistence layers
+  agent-configs/       Agent-configuration domain
+  experiments/         Experiment API, persistence and orchestration
+  runners/             Demo and Hermes adapters
+  evaluation/          Pure scoring and statistics functions
+  common/              Configuration, validation, SQLite and migrations
+apps/web/src/          Vue 3 interface and typed API client
 packages/shared/      Shared API types
 sample/skills/        Local Hermes skill used by the sample candidate
 docs/                 Design, limits, costs, results
 ```
+
+Database input is handled with prepared statements and bound parameters. HTTP DTOs reject unknown fields and enforce size/format limits; regular expressions and resolved skill paths receive additional domain checks. See [Security notes](docs/SECURITY.md) for the complete boundary model and regression-test coverage.
 
 ## Assumptions
 
@@ -139,4 +149,4 @@ docs/                 Design, limits, costs, results
 - The local demo runner is a workflow fixture, not evidence about model quality. It is visibly labeled in the UI and trace.
 - The default concurrency of two is conservative. Change `RUN_CONCURRENCY` for a provider's rate limits.
 
-See [Design](docs/DESIGN.md), [Known limits](docs/KNOWN_LIMITS.md), [Costs](docs/COSTS.md), and [Experiment results](docs/EXPERIMENT_RESULTS.md).
+See [Design](docs/DESIGN.md), [Security notes](docs/SECURITY.md), [Known limits](docs/KNOWN_LIMITS.md), [Costs](docs/COSTS.md), and [Experiment results](docs/EXPERIMENT_RESULTS.md).

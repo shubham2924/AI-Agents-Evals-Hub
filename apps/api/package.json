@@ -7,7 +7,7 @@
     "dev": "node --watch -r ts-node/register src/main.ts",
     "build": "tsc -p tsconfig.json",
     "start": "node dist/main.js",
-    "seed": "tsx src/seed.ts",
+    "seed": "tsx src/seed/seed-cli.ts",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
@@ -19,8 +19,10 @@
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.1",
     "dotenv": "^18.0.7",
+    "helmet": "^8.3.0",
     "reflect-metadata": "^0.2.2",
-    "rxjs": "^7.8.2"
+    "rxjs": "^7.8.2",
+    "safe-regex2": "^5.1.2"
   },
   "devDependencies": {
     "@nestjs/testing": "^11.2.7",
