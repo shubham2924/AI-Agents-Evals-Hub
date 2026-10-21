@@ -16,10 +16,10 @@ Does adding a support-triage skill and memory improve performance over the gener
 
 ## Recorded result
 
-| Configuration | Mean score |
-|---|---:|
-| General assistant | 40% |
-| Support specialist | 100% |
+| Configuration      | Mean score |
+| ------------------ | ---------: |
+| General assistant  |        40% |
+| Support specialist |       100% |
 
 Observed change: **+60 percentage points** with a paired bootstrap 95% interval of **+33 to +87 points**. The candidate fixes urgent routing, safe security escalation, and refusal to invent account credit.
 

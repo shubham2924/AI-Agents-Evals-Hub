@@ -88,3 +88,16 @@ export interface Comparison {
   sampleCount: number;
   byTask: Array<{ taskId: string; baseline: number; candidate: number; delta: number }>;
 }
+
+export interface ExperimentDetail extends ExperimentSummary {
+  taskSet: TaskSet;
+  baselineConfig: AgentConfig;
+  candidateConfig: AgentConfig;
+  runs: Run[];
+  comparison: Comparison;
+}
+
+export interface RunDetail extends Run {
+  task: Task;
+  config: AgentConfig;
+}
